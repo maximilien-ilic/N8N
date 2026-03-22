@@ -24,7 +24,8 @@ un rapport de sécurité complet.
 ## 📸 Aperçu
 
 ### Workflows n8n
-![Architecture Email](<img width="1112" height="680" alt="image" src="https://github.com/user-attachments/assets/8df01f32-90b9-4e50-9106-3592a4bf1178" />)
+![Architecture Email](<img width="578" height="397" alt="chatbox" src="https://github.com/user-attachments/assets/6248e589-678c-49ea-82dc-508f027b666d" />)
+
 ![Architecture PR](lien_image_2)
 
 ### Résultats
