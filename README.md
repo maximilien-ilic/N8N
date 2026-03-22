@@ -28,7 +28,7 @@ un rapport de sécurité complet.
 ![Architecture PR / Email](https://github.com/user-attachments/assets/d0aa9fe7-ea2a-439c-9622-3afdc11748e7)
 
 ### Résultats
-![Résultat PR Audit](https://github.com/user-attachments/assets/bb6d29b8-00de-4665-9150-fffeb1083a0d)
+![Résultat PR Audit](https://github.com/user-attachments/assets/f12a419c-0a59-4bc3-b821-9a5e6d0c9483)
 ![Résultat Discord DM](https://github.com/user-attachments/assets/bb6d29b8-00de-4665-9150-fffeb1083a0d)
 ## 🚀 Installation
 
