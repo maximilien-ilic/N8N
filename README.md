@@ -41,3 +41,68 @@ un rapport de sécurité complet.
 
 ### 1. Lancer n8n avec Docker
 ```bash
+docker run -d \
+  --name n8n \
+  -p 5678:5678 \
+  -v n8n_data:/home/node/.n8n \
+  n8nio/n8n:latest
+```
+
+### 2. Lancer Ollama
+```bash
+# Définir OLLAMA_HOST pour Docker
+$env:OLLAMA_HOST = "0.0.0.0"  # Windows PowerShell
+
+# Télécharger un modèle
+ollama pull mistral
+```
+
+### 3. Accéder à n8n
+Ouvre [http://localhost:5678](http://localhost:5678)
+
+## 🔑 Configuration des credentials
+
+Dans n8n : **Settings → Credentials → Add Credential**
+
+| Service | Champs requis |
+|---------|--------------|
+| **Ollama** | Base URL : `http://host.docker.internal:11434` |
+| **Gmail OAuth2** | Client ID + Client Secret (Google Cloud Console) |
+| **Discord Bot** | Bot Token (Discord Developer Portal) |
+| **DeepL** | API Key (se termine par `:fx` pour le plan gratuit) |
+| **Claude API** | API Key (console.anthropic.com) |
+| **GitHub** | Access Token + Webhook Secret |
+
+## 📋 Workflows
+
+### 📧 Email Daily Recap
+- Se déclenche automatiquement à **16h30** chaque jour
+- Récupère tous les emails du jour depuis Gmail
+- Traduit le contenu en français via DeepL
+- Génère un résumé avec priorités via Ollama
+- Envoie le récap en **DM Discord**
+
+### 🔐 PR Security Audit  
+- Se déclenche à chaque **Pull Request** GitHub
+- Analyse les diffs de code
+- Détecte les vulnérabilités (XSS, injection, secrets exposés...)
+- Génère un rapport JSON via Claude API
+- Poste un commentaire directement sur la PR
+
+## 🛠️ Stack technique
+
+- **[n8n](https://n8n.io/)** — Orchestration des workflows
+- **[Ollama](https://ollama.com/)** — LLM local (Mistral, LLaMA...)
+- **[Claude API](https://anthropic.com)** — Analyse de sécurité avancée
+- **[DeepL API](https://deepl.com)** — Traduction automatique
+- **Docker** — Containerisation
+
+## ⚠️ Notes importantes
+
+- n8n doit être **actif** à 16h30 pour le déclenchement automatique
+- Ollama doit tourner avec `OLLAMA_HOST=0.0.0.0` pour être accessible depuis Docker
+- Le plan gratuit DeepL offre **500 000 caractères/mois**
+- Pour les webhooks GitHub, un domaine public est nécessaire (ou [ngrok](https://ngrok.com))
+
+## 📄 Licence
+MIT
