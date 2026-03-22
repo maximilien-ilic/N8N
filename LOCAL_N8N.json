@@ -1,0 +1,712 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "owner": {
+          "__rl": true,
+          "value": "maximilien-ilic",
+          "mode": "list",
+          "cachedResultName": "maximilien-ilic",
+          "cachedResultUrl": "https://github.com/maximilien-ilic"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "Portfolio",
+          "mode": "list",
+          "cachedResultName": "Portfolio",
+          "cachedResultUrl": "https://github.com/maximilien-ilic/Portfolio"
+        },
+        "events": [
+          "pull_request"
+        ],
+        "options": {
+          "insecureSSL": false
+        }
+      },
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [
+        96,
+        256
+      ],
+      "id": "8d578bc0-4fa2-4ebb-b07d-0458fdbb7c84",
+      "name": "Github Trigger",
+      "webhookId": "f15725aa-fbc0-46ef-acec-124401a9667f",
+      "credentials": {
+        "githubApi": {
+          "id": "5YJSfkBSdWhpgUvt",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body;\nconst action = body.action;\n\nif (!['opened', 'synchronize', 'reopened'].includes(action)) {\n  return [];\n}\n\nreturn [{\n  json: {\n    action: action,\n    number: body.number,\n    pr_title: body.pull_request.title,\n    pr_author: body.pull_request.user.login,\n    head_sha: body.pull_request.head.sha,\n    repo: 'maximilien-ilic/Portfolio'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        256
+      ],
+      "id": "87529dc0-5985-4f49-ba04-53349f1540f9",
+      "name": "IF"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/maximilien-ilic/Portfolio/pulls/{{ $json.number}}/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/vnd.github.v3+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        752,
+        224
+      ],
+      "id": "2c63d921-b110-4451-b876-879ab1c46d51",
+      "name": "GET",
+      "credentials": {
+        "githubApi": {
+          "id": "5YJSfkBSdWhpgUvt",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const files = $input.all().map(i => i.json);\n\nconst SKIP = ['.lock', '.png', '.jpg', '.jpeg', '.svg',\n              '.gif', '.ico', '.woff', '.woff2', '.ttf'];\n\nconst relevant = files.filter(f => {\n  const ext = '.' + f.filename.split('.').pop().toLowerCase();\n  return !SKIP.includes(ext) && f.status !== 'removed' && f.patch;\n});\n\nif (relevant.length === 0) {\n  return [{ json: { skip: true } }];\n}\n\nconst codeBlock = relevant.map(f =>\n  `### ${f.filename}\\n\\`\\`\\`diff\\n${(f.patch || '').substring(0, 4000)}\\n\\`\\`\\``\n).join('\\n\\n');\n\nconst prNumber = $('IF').first().json.number;\n\nreturn [{\n  json: {\n    pr_number:  prNumber,\n    pr_title:   'Audit sécurité automatique',\n    pr_author:  'maximilien-ilic',\n    head_sha:   '',\n    repo:       'maximilien-ilic/Portfolio',\n    file_count: relevant.length,\n    prompt_payload: {\n      model: \"claude-sonnet-4-6\",\n      max_tokens: 3000,\n      system: \"Tu es un expert en sécurité applicative. Tu analyses des diffs de Pull Requests et réponds UNIQUEMENT en JSON valide, sans markdown.\",\n      messages: [{\n        role: \"user\",\n        content: `Analyse ce diff et réponds en JSON :\\n\\n${codeBlock}\\n\\n{\\n  \"overall_risk\": \"critical|high|medium|low|safe\",\\n  \"summary\": \"Résumé en 2 phrases\",\\n  \"vulnerabilities\": [{\"file\":\"...\",\"severity\":\"critical|high|medium|low\",\"category\":\"xss|injection|secrets|auth|crypto|other\",\"title\":\"...\",\"description\":\"...\",\"remediation\":\"...\"}],\\n  \"secrets_detected\": [],\\n  \"block_merge\": false,\\n  \"security_positives\": []\\n}`\n      }]\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        224
+      ],
+      "id": "1fa6e755-c05b-4022-9e22-5f66385321ec",
+      "name": "PROMPT"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "x-api-key",
+              "value": "CLE CLAUDE"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-sonnet-4-6"
+            },
+            {
+              "name": "max_tokens",
+              "value": "={{3000}}"
+            },
+            {
+              "name": "system",
+              "value": "={{ $json.prompt_payload.system }}"
+            },
+            {
+              "name": "messages",
+              "value": "={{ $json.prompt_payload.messages }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1168,
+        224
+      ],
+      "id": "cf8780e5-5b51-4be3-b5fb-e8386fd7c7e3",
+      "name": "POST"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/maximilien-ilic/Portfolio/issues/{{ $json.pr_number }}/comments",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/vnd.github.v3+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "body",
+              "value": "={{ $json.github_comment }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1584,
+        224
+      ],
+      "id": "69ef7f52-c905-4c47-b7c5-73574c87c0cd",
+      "name": "POST COMMENT",
+      "credentials": {
+        "githubApi": {
+          "id": "5YJSfkBSdWhpgUvt",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const claudeRaw = $input.first().json.content[0].text;\nconst pr = $('PROMPT').first().json;\n\nlet analysis;\ntry {\n  analysis = JSON.parse(claudeRaw.replace(/```json\\n?|\\n?```/g, '').trim());\n} catch(e) {\n  analysis = {\n    overall_risk: 'medium',\n    summary: claudeRaw,\n    vulnerabilities: [],\n    secrets_detected: [],\n    block_merge: false,\n    security_positives: []\n  };\n}\n\nconst emoji = { critical:'🔴', high:'🟠', medium:'🟡', low:'🟢', safe:'✅' };\nconst sevLabel = { critical:'🔴 Critique', high:'🟠 Haute', medium:'🟡 Moyenne', low:'🟢 Faible' };\n\nlet comment = `## ${emoji[analysis.overall_risk] || '⚪'} Audit sécurité — Risque **${(analysis.overall_risk || 'inconnu').toUpperCase()}**\\n\\n`;\ncomment += `> ${analysis.summary}\\n\\n`;\ncomment += `*Analysé par Claude · ${pr.file_count} fichier(s) · ${new Date().toLocaleDateString('fr-FR')}*\\n\\n`;\n\nif (analysis.secrets_detected?.length > 0) {\n  comment += `---\\n### ⚠️ Secrets détectés\\n`;\n  analysis.secrets_detected.forEach(s => {\n    comment += `- **${s.type}** dans \\`${s.file}\\`\\n`;\n  });\n  comment += '\\n';\n}\n\nif (analysis.vulnerabilities?.length > 0) {\n  comment += `---\\n### Vulnérabilités (${analysis.vulnerabilities.length})\\n\\n`;\n  analysis.vulnerabilities.forEach(v => {\n    comment += `<details>\\n<summary>${sevLabel[v.severity] || v.severity} — ${v.title} · <code>${v.file}</code></summary>\\n\\n`;\n    comment += `**Catégorie** : ${v.category}\\n\\n`;\n    comment += `**Problème** : ${v.description}\\n\\n`;\n    comment += `**Correction** : ${v.remediation}\\n\\n`;\n    comment += `</details>\\n\\n`;\n  });\n} else {\n  comment += `---\\n### ✅ Aucune vulnérabilité détectée\\n\\n`;\n}\n\nif (analysis.security_positives?.length > 0) {\n  comment += `---\\n### Bonnes pratiques\\n`;\n  analysis.security_positives.forEach(p => comment += `- ${p}\\n`);\n}\n\nreturn [{\n  json: {\n    pr_number:      pr.pr_number,\n    repo:           pr.repo,\n    head_sha:       pr.head_sha,\n    github_comment: comment,\n    block_merge:    analysis.block_merge || false,\n    overall_risk:   analysis.overall_risk\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        224
+      ],
+      "id": "bcd7a69f-7c58-4813-8650-944ce781c648",
+      "name": "COMMENT"
+    },
+    {
+      "parameters": {
+        "content": "# AUTOMATISATION PULL REQUEST CLAUDE SECURITY\n",
+        "height": 576,
+        "width": 1872,
+        "color": "#814F09"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "24248c85-1531-4a79-bcf3-416ba64b4e33",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Voici {{ $json.data.length }} emails reçus aujourd'hui :\n\n{{ $json.data.map((item, i) => `Email ${i+1}:\nDe: ${item.From || item.from || 'Inconnu'}\nSujet: ${item.Subject || item.subject || 'Sans objet'}\nContenu: ${item.translations?.[0]?.text || item.snippet || ''}\n`).join('\\n---\\n') }}",
+        "options": {
+          "systemMessage": "Tu es un assistant personnel. Analyse les emails que tu reçois \net fais un récapitulatif en français avec ce format :\n\n📬 **X emails reçus aujourd'hui**\n\n👤 De : ...\n📌 Sujet : ...\n📝 Résumé : ...\n⚡ Priorité : Urgente / Normale / Faible\n✅ Action : ...\n\n🎯 **Actions prioritaires du jour :**"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1008,
+        752
+      ],
+      "id": "a60f4958-50d5-4b87-8fea-39a69cb0f119",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "mistral:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        992,
+        960
+      ],
+      "id": "bc865a77-8a7f-4751-b830-dd2f99facf17",
+      "name": "Ollama Chat Model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "69mhJ9okrbU2rKRE",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "peut tu me faire un classement des joueur de foot actuel",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -896,
+        800
+      ],
+      "id": "4ac8f33e-60e4-4834-a4d7-dc42526e255b",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": "mistral:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        1024
+      ],
+      "id": "6545e35b-f950-4c96-9e2f-c410c55dedf1",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "69mhJ9okrbU2rKRE",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c80431bb-0a2d-4ca8-9089-350b0c4c6a78",
+              "name": "text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "stripBinary": true,
+          "ignoreConversionErrors": true,
+          "dotNotation": true
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -544,
+        800
+      ],
+      "id": "622bfdea-f5ed-4dd6-a1c0-c0f9f626cf5b",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "content": "# BASIC CHATBOX\n\n",
+        "height": 608,
+        "width": 960,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1216,
+        624
+      ],
+      "typeVersion": 1,
+      "id": "dc235cf0-7a45-4f19-92b0-2892c4c51510",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1088,
+        800
+      ],
+      "id": "ce8e63c8-4992-4369-a650-b32895b25817",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "guildId": {
+          "__rl": true,
+          "value": "841780635725987840",
+          "mode": "id"
+        },
+        "sendTo": "user",
+        "userId": {
+          "__rl": true,
+          "value": "488322781444964352",
+          "mode": "id"
+        },
+        "content": "={{ $('AI Agent').first().json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        752
+      ],
+      "id": "1adbb0ba-980c-4db4-a1ab-fd331d8ca6f6",
+      "name": "Send a message",
+      "webhookId": "dae7ecad-4355-4f82-9278-57c387a47c13",
+      "credentials": {
+        "discordBotApi": {
+          "id": "RCLWVQWFZZid9CMI",
+          "name": "Discord Bot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "filters": {
+          "receivedAfter": "={{ $now.startOf('day').toISO() }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        768
+      ],
+      "id": "565be65c-1333-4d48-a456-c36cb48c7c6c",
+      "name": "Get many messages",
+      "webhookId": "837b5bf9-4422-4569-b2bd-dbed9a2286ee",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7KAyW4CmspEdim0H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-free.deepl.com/v1/translate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"text\": [\"{{ $json.snippet || $json.Subject || 'Email sans contenu' }}\"],\n  \"target_lang\": \"FR\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        512,
+        768
+      ],
+      "id": "069af2cc-3049-4e31-94fd-ec32549b703e",
+      "name": "HTTP Request",
+      "credentials": {
+        "deepLApi": {
+          "id": "UpLbWHXBTQY9vjCM",
+          "name": "DeepL account"
+        },
+        "httpMultipleHeadersAuth": {
+          "id": "Gzy5OAwmBe8LVZrm",
+          "name": "Multiple Headers Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        800
+      ],
+      "id": "4a190e22-03c5-4436-a718-8045060f8f3a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        832,
+        752
+      ],
+      "id": "2806b033-d4bb-4973-939a-cbe03d9c5a57",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ad3c067f-4e24-481a-9a8a-e209039c7e97",
+              "name": "text",
+              "value": "={{ $json.translations[0].text }}",
+              "type": "string"
+            },
+            {
+              "id": "cdce1a83-c4be-450d-a893-0846e77d1b25",
+              "name": "from",
+              "value": "={{ $('Get many messages').item.json.From }}",
+              "type": "string"
+            },
+            {
+              "id": "957b24ad-d503-4b20-a390-22c9fc24202e",
+              "name": "subject",
+              "value": "={{ $('Get many messages').item.json.Subject }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "ignoreConversionErrors": false
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        768
+      ],
+      "id": "3b12f43c-3aaa-4139-a87e-80a593126aff",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "content": "# Mail filter en DM discord",
+        "height": 496,
+        "width": 1664,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        32,
+        624
+      ],
+      "typeVersion": 1,
+      "id": "0c6b3624-8259-4325-9e7b-6a297212c377",
+      "name": "Sticky Note2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Github Trigger": {
+      "main": [
+        [
+          {
+            "node": "IF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF": {
+      "main": [
+        [
+          {
+            "node": "GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET": {
+      "main": [
+        [
+          {
+            "node": "PROMPT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROMPT": {
+      "main": [
+        [
+          {
+            "node": "POST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST": {
+      "main": [
+        [
+          {
+            "node": "COMMENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "COMMENT": {
+      "main": [
+        [
+          {
+            "node": "POST COMMENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many messages": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2b42a655-8d7a-42f0-a667-eee5acfdef62",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "850f1c0689a37c1c6d5c8fccc887350d779ed73498d2138578d06341b2d877f8"
+  },
+  "id": "KOpH2VrLhHcsD0Wx",
+  "tags": []
+}
