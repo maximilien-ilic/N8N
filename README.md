@@ -8,7 +8,7 @@ pour gérer des outils via un agent IA — boîte mail, Pull Requests GitHub, et
 Le projet contient deux workflows principaux :
 
 ### 1. 📧 Récapitulatif d'emails quotidien
-Analyse automatiquement tes emails du jour à 16h30 et envoie un résumé 
+Analyse automatiquement tes emails du jour à 18h et envoie un résumé 
 structuré en DM Discord.
 
 **Workflow :**
@@ -69,7 +69,7 @@ Dans n8n : **Settings → Credentials → Add Credential**
 | **Ollama** | Base URL : `http://host.docker.internal:11434` |
 | **Gmail OAuth2** | Client ID + Client Secret (Google Cloud Console) |
 | **Discord Bot** | Bot Token (Discord Developer Portal) |
-| **DeepL** | API Key (se termine par `:fx` pour le plan gratuit) |
+| **DeepL** | API Key  |
 | **Claude API** | API Key (console.anthropic.com) |
 | **GitHub** | Access Token + Webhook Secret |
 
@@ -99,10 +99,6 @@ Dans n8n : **Settings → Credentials → Add Credential**
 
 ## ⚠️ Notes importantes
 
-- n8n doit être **actif** à 16h30 pour le déclenchement automatique
+- n8n doit être **actif** à 18h pour le déclenchement automatique
 - Ollama doit tourner avec `OLLAMA_HOST=0.0.0.0` pour être accessible depuis Docker
-- Le plan gratuit DeepL offre **500 000 caractères/mois**
-- Pour les webhooks GitHub, un domaine public est nécessaire (ou [ngrok](https://ngrok.com))
 
-## 📄 Licence
-MIT
